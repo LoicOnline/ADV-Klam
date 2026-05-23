@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transit Documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAF8F4; --surface: #FFFFFF; --ink: #0D1B2A;
+  --ink-soft: #415A77; --ink-mute: #778DA9;
+  --accent: #1B3A5C; --accent-light: #E0E7F0; --line: #E5DFD3;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6;
+  min-height: 100vh;
+}
+.page { max-width: 580px; margin: 0 auto; padding: 80px 24px 40px; text-align: center; }
+.brand {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--ink-mute); letter-spacing: 0.15em;
+  text-transform: uppercase; margin-bottom: 16px;
+}
+h1 {
+  font-family: 'Fraunces', serif; font-weight: 500;
+  font-size: 44px; letter-spacing: -0.025em;
+  line-height: 1.1; margin-bottom: 12px;
+}
+.tagline {
+  color: var(--ink-soft); font-size: 16px;
+  margin-bottom: 48px; max-width: 440px; margin-left: auto; margin-right: auto;
+}
+.actions { display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto; }
+.action-card {
+  background: var(--surface); border: 1px solid var(--line);
+  padding: 22px 24px; border-radius: 4px;
+  text-decoration: none; color: var(--ink);
+  display: flex; align-items: center; gap: 16px;
+  text-align: left; transition: all 0.15s;
+}
+.action-card:hover { border-color: var(--accent); background: var(--accent-light); }
+.action-icon {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent-light); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0; color: var(--accent);
+}
+.action-card:hover .action-icon { background: var(--accent); color: var(--surface); }
+.action-content { flex: 1; }
+.action-title { font-weight: 500; font-size: 15px; margin-bottom: 2px; }
+.action-desc { font-size: 12px; color: var(--ink-mute); }
+.footer {
+  margin-top: 80px; font-size: 11px; color: var(--ink-mute);
+  font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
+}
+@media (max-width: 480px) { .page { padding: 60px 20px 40px; } h1 { font-size: 34px; } }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="brand">Transit · Logistique · Douane</div>
+  <h1>Documents clients</h1>
+  <p class="tagline">Plateforme de collecte sécurisée des documents obligatoires pour vos envois.</p>
+
+  <div class="actions">
+    <a href="admin.html" class="action-card">
+      <div class="action-icon">⚙</div>
+      <div class="action-content">
+        <div class="action-title">Espace administrateur</div>
+        <div class="action-desc">Gérer les dossiers et générer les liens</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="footer">ADV-Klam · Hébergé sur GitHub Pages</div>
+</div>
+
+</body>
+</html>
