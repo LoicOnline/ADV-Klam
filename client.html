@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dépôt de documents · Transit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+:root {
+  --bg: #FAF8F4; --surface: #FFFFFF; --ink: #0D1B2A;
+  --ink-soft: #415A77; --ink-mute: #778DA9;
+  --accent: #1B3A5C; --accent-light: #E0E7F0;
+  --success: #1F6B3A; --success-bg: #E8F2EC;
+  --warn: #B45309; --line: #E5DFD3; --line-strong: #CBC3B2;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--bg); color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh;
+}
+.header { background: var(--ink); color: var(--surface); padding: 18px 24px; text-align: center; }
+.header-brand { font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
+.header-sub {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--ink-mute); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px;
+}
+.container { max-width: 620px; margin: 0 auto; padding: 32px 20px 80px; }
+.intro { margin-bottom: 32px; }
+.dossier-tag {
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--ink-mute); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px;
+}
+.intro h1 {
+  font-family: 'Fraunces', serif; font-weight: 500;
+  font-size: 34px; letter-spacing: -0.02em; margin-bottom: 8px; line-height: 1.15;
+}
+.intro p { color: var(--ink-soft); font-size: 15px; }
+.progress-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 4px; padding: 22px 24px; margin-bottom: 28px;
+}
+.progress-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.progress-label {
+  font-size: 12px; color: var(--ink-mute);
+  letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500;
+}
+.progress-count { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; }
+.progress-count span { color: var(--ink-mute); font-size: 16px; }
+.progress-bar-wrap { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--accent); transition: width 0.5s; }
+.progress-bar.complete { background: var(--success); }
+.progress-caption { font-size: 12px; color: var(--ink-mute); margin-top: 10px; }
+.section-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-mute); margin: 28px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.doc-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 4px; padding: 18px 20px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 14px;
+}
+.doc-card.missing { border-style: dashed; cursor: pointer; }
+.doc-card.missing:hover { border-color: var(--accent); background: var(--accent-light); }
+.doc-card.missing.dragover { border-color: var(--accent); background: var(--accent-light); border-style: solid; }
+.doc-card.received { border-color: #B5D7BE; background: #F4FAF6; }
+.doc-icon {
+  font-size: 22px; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); border-radius: 50%; flex-shrink: 0;
+}
+.doc-card.received .doc-icon { background: var(--success); color: #fff; font-size: 18px; }
+.doc-content { flex: 1; min-width: 0; }
+.doc-name { font-weight: 500; font-size: 15px; margin-bottom: 2px; }
+.doc-card.received .doc-name { color: var(--success); }
+.doc-meta { font-size: 12px; color: var(--ink-mute); }
+.doc-card.received .doc-meta { font-family: 'JetBrains Mono', monospace; color: var(--success); opacity: 0.85; }
+.doc-action {
+  flex-shrink: 0; font-size: 12px; padding: 6px 12px;
+  border-radius: 3px; font-weight: 500; font-family: inherit; cursor: pointer; border: none;
+}
+.doc-action.replace { background: transparent; color: var(--ink-soft); border: 1px solid var(--line-strong); }
+.upload-hint { font-size: 12px; color: var(--accent); font-weight: 500; }
+.uploading { font-size: 12px; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+.info-box {
+  background: var(--accent-light); border-left: 3px solid var(--accent);
+  padding: 14px 18px; margin-top: 24px;
+  font-size: 13px; color: var(--accent); border-radius: 0 3px 3px 0;
+}
+.info-box strong { font-weight: 600; display: block; margin-bottom: 4px; }
+.complete-banner {
+  background: var(--success-bg); border: 1px solid #B5D7BE;
+  padding: 24px; border-radius: 4px; text-align: center; margin-bottom: 24px;
+}
+.complete-icon { font-size: 36px; margin-bottom: 8px; }
+.complete-banner h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; color: var(--success); margin-bottom: 6px; }
+.complete-banner p { color: var(--success); font-size: 14px; }
+.footer {
+  text-align: center; padding: 24px 20px;
+  font-size: 11px; color: var(--ink-mute);
+  border-top: 1px solid var(--line); font-family: 'JetBrains Mono', monospace;
+}
+.loading, .error-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; padding: 40px 20px; text-align: center;
+}
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-page h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; margin-bottom: 8px; }
+.error-page p { color: var(--ink-mute); }
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--surface); padding: 12px 20px;
+  border-radius: 4px; font-size: 13px; opacity: 0;
+  transition: all 0.3s; z-index: 100; pointer-events: none;
+  max-width: 90%; text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { background: #991B1B; }
+@media (max-width: 480px) {
+  .container { padding: 24px 16px 60px; }
+  .intro h1 { font-size: 26px; }
+  .doc-card { padding: 14px 16px; gap: 12px; }
+  .doc-icon { width: 36px; height: 36px; font-size: 18px; }
+}
+input[type="file"] { display: none; }
+
+/* CODE D'ACCÈS */
+.access-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 70vh; padding: 40px 20px;
+}
+.access-box {
+  background: var(--surface); border: 1px solid var(--line);
+  padding: 40px 36px; border-radius: 4px;
+  width: 100%; max-width: 380px; text-align: center;
+}
+.access-box h2 {
+  font-family: 'Fraunces', serif; font-weight: 500;
+  font-size: 26px; margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.access-box p { color: var(--ink-mute); font-size: 13px; margin-bottom: 28px; }
+.code-input {
+  width: 100%; padding: 16px; font-size: 24px; text-align: center;
+  letter-spacing: 0.4em; font-weight: 500;
+  border: 1px solid var(--line); background: var(--bg);
+  border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 12px; color: var(--ink);
+}
+.code-input:focus { outline: none; border-color: var(--accent); }
+.access-btn {
+  width: 100%; padding: 13px; background: var(--ink); color: var(--surface);
+  border: none; font-family: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; border-radius: 3px;
+}
+.access-btn:hover { background: var(--accent); }
+.access-error { color: #991B1B; font-size: 13px; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-brand">Transit Documents</div>
+  <div class="header-sub">Dépôt sécurisé</div>
+</header>
+
+<div id="content">
+  <div class="loading">
+    <div class="loading-spinner"></div>
+    <p style="color: var(--ink-mute); font-size: 14px;">Chargement de votre dossier…</p>
+  </div>
+</div>
+
+<div class="footer">Vos documents sont chiffrés et accessibles uniquement par notre équipe</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+let db, storage, dossierId, dossier;
+
+window.addEventListener('DOMContentLoaded', () => {
+  dossierId = new URLSearchParams(location.search).get('id');
+  if (!dossierId) return showError('Lien invalide', 'Aucun identifiant de dossier dans l\'URL.');
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+    db = firebase.database();
+    storage = firebase.storage();
+    loadDossier();
+  } catch (e) {
+    console.error(e);
+    showError('Erreur technique', 'Veuillez contacter votre transitaire.');
+  }
+});
+
+function loadDossier() {
+  db.ref('dossiers/' + dossierId).on('value', snap => {
+    dossier = snap.val();
+    if (!dossier) return showError('Dossier introuvable', 'Le lien est peut-être expiré ou incorrect.');
+
+    // Vérifier le code d'accès si présent et non encore validé
+    if (dossier.accessCode && sessionStorage.getItem('access_' + dossierId) !== 'ok') {
+      showAccessScreen();
+      return;
+    }
+    render();
+  }, err => {
+    console.error(err);
+    showError('Erreur de connexion', 'Impossible d\'accéder à votre dossier.');
+  });
+}
+
+function showAccessScreen() {
+  document.getElementById('content').innerHTML = `
+    <div class="access-screen">
+      <div class="access-box">
+        <h2>Code d'accès requis</h2>
+        <p>Entrez le code à 4 chiffres que votre transitaire vous a communiqué</p>
+        <input type="text" inputmode="numeric" maxlength="4" pattern="[0-9]*" class="code-input" id="codeInput" placeholder="••••" autocomplete="off">
+        <button class="access-btn" onclick="checkAccessCode()">Accéder à mon dossier</button>
+        <div class="access-error" id="accessError">Code incorrect, réessayez</div>
+      </div>
+    </div>
+  `;
+  const input = document.getElementById('codeInput');
+  input.focus();
+  input.addEventListener('keypress', e => { if (e.key === 'Enter') checkAccessCode(); });
+  input.addEventListener('input', e => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    if (e.target.value.length === 4) checkAccessCode();
+  });
+}
+
+function checkAccessCode() {
+  const entered = document.getElementById('codeInput').value;
+  if (entered === dossier.accessCode) {
+    sessionStorage.setItem('access_' + dossierId, 'ok');
+    render();
+  } else {
+    document.getElementById('accessError').style.display = 'block';
+    document.getElementById('codeInput').value = '';
+    document.getElementById('codeInput').focus();
+  }
+}
+
+function getStatus() {
+  const docs = dossier.docs || {};
+  const total = Object.keys(docs).length;
+  const received = Object.values(docs).filter(x => x.status === 'received').length;
+  return { total, received, isComplete: received === total && total > 0 };
+}
+
+function render() {
+  const { total, received, isComplete } = getStatus();
+  const pct = total ? Math.round(received / total * 100) : 0;
+  const docs = dossier.docs || {};
+  const docEntries = Object.entries(docs);
+  const received_docs = docEntries.filter(([k, d]) => d.status === 'received');
+  const missing_docs = docEntries.filter(([k, d]) => d.status !== 'received');
+
+  document.getElementById('content').innerHTML = `
+    <div class="container">
+      <div class="intro">
+        <div class="dossier-tag">Dossier nº ${dossier.num}</div>
+        <h1>Bonjour ${escapeHtml(dossier.name)},</h1>
+        <p>Voici la liste des documents à fournir pour votre envoi. Glissez-les ci-dessous ou cliquez pour les sélectionner.</p>
+      </div>
+
+      ${isComplete ? `
+        <div class="complete-banner">
+          <div class="complete-icon">✓</div>
+          <h2>Dossier complet</h2>
+          <p>Tous vos documents ont bien été reçus. Notre équipe va les vérifier.</p>
+        </div>
+      ` : ''}
+
+      <div class="progress-card">
+        <div class="progress-top">
+          <span class="progress-label">Progression</span>
+          <span class="progress-count">${received}<span> / ${total} documents</span></span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar ${isComplete ? 'complete' : ''}" style="width: ${pct}%"></div>
+        </div>
+        <div class="progress-caption">
+          ${isComplete
+            ? 'Vous pouvez fermer cette page, vos documents sont en cours de vérification.'
+            : `Il vous reste ${total - received} document${total - received > 1 ? 's' : ''} à fournir.`}
+        </div>
+      </div>
+
+      ${missing_docs.length > 0 ? `
+        <div class="section-title">À fournir</div>
+        ${missing_docs.map(([k, d]) => renderMissingCard(k, d)).join('')}
+      ` : ''}
+
+      ${received_docs.length > 0 ? `
+        <div class="section-title">Documents reçus</div>
+        ${received_docs.map(([k, d]) => renderReceivedCard(k, d)).join('')}
+      ` : ''}
+
+      <div class="info-box">
+        <strong>Formats acceptés</strong>
+        PDF, JPG, PNG · 10 Mo maximum par fichier. Vos documents sont chiffrés et stockés de manière sécurisée.
+      </div>
+    </div>
+  `;
+
+  missing_docs.forEach(([k]) => attachUploadHandlers(k));
+  received_docs.forEach(([k]) => attachReplaceHandler(k));
+}
+
+function renderMissingCard(key, doc) {
+  return `
+    <div class="doc-card missing" id="card_${key}" data-key="${key}">
+      <div class="doc-icon">${doc.icon || '📄'}</div>
+      <div class="doc-content">
+        <div class="doc-name">${escapeHtml(doc.label)}</div>
+        <div class="doc-meta"><span class="upload-hint">Cliquer ou glisser un fichier</span></div>
+      </div>
+      <input type="file" id="file_${key}" accept=".pdf,.jpg,.jpeg,.png">
+    </div>`;
+}
+
+function renderReceivedCard(key, doc) {
+  const uploadedStr = doc.uploadedAt
+    ? `Reçu le ${new Date(doc.uploadedAt).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric'})} à ${new Date(doc.uploadedAt).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}`
+    : (doc.filename || 'Fichier reçu');
+  return `
+    <div class="doc-card received">
+      <div class="doc-icon">✓</div>
+      <div class="doc-content">
+        <div class="doc-name">${escapeHtml(doc.label)}</div>
+        <div class="doc-meta">${escapeHtml(uploadedStr)}</div>
+      </div>
+      <button class="doc-action replace" onclick="document.getElementById('file_replace_${key}').click()">Remplacer</button>
+      <input type="file" id="file_replace_${key}" accept=".pdf,.jpg,.jpeg,.png">
+    </div>`;
+}
+
+function attachUploadHandlers(key) {
+  const card = document.getElementById('card_' + key);
+  const input = document.getElementById('file_' + key);
+  card.addEventListener('click', e => { if (e.target.tagName !== 'INPUT') input.click(); });
+  card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('dragover'); });
+  card.addEventListener('dragleave', () => card.classList.remove('dragover'));
+  card.addEventListener('drop', e => {
+    e.preventDefault();
+    card.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleUpload(key, e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', e => {
+    if (e.target.files[0]) handleUpload(key, e.target.files[0]);
+  });
+}
+
+function attachReplaceHandler(key) {
+  const input = document.getElementById('file_replace_' + key);
+  if (input) input.addEventListener('change', e => {
+    if (e.target.files[0]) handleUpload(key, e.target.files[0]);
+  });
+}
+
+async function handleUpload(key, file) {
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Fichier trop volumineux (max 10 Mo)', true);
+    return;
+  }
+  const okTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+  if (!okTypes.includes(file.type)) {
+    showToast('Format non accepté (PDF, JPG, PNG uniquement)', true);
+    return;
+  }
+
+  const card = document.getElementById('card_' + key);
+  if (card) {
+    card.querySelector('.doc-meta').innerHTML = `<span class="uploading">Téléchargement en cours…</span>`;
+    card.style.pointerEvents = 'none';
+  }
+
+  try {
+    const ext = file.name.split('.').pop();
+    const path = `documents/${dossierId}/${key}_${Date.now()}.${ext}`;
+    const ref = storage.ref(path);
+
+    const prev = dossier.docs[key].path;
+    if (prev) { try { await storage.ref(prev).delete(); } catch(e) {} }
+
+    await ref.put(file);
+    const url = await ref.getDownloadURL();
+
+    await db.ref(`dossiers/${dossierId}/docs/${key}`).update({
+      status: 'received', path, url,
+      filename: file.name, uploadedAt: Date.now()
+    });
+
+    showToast('Document envoyé avec succès');
+  } catch (e) {
+    console.error(e);
+    showToast('Erreur lors de l\'envoi, réessayez', true);
+    render();
+  }
+}
+
+function showError(title, msg) {
+  document.getElementById('content').innerHTML = `
+    <div class="error-page"><h2>${title}</h2><p>${msg}</p></div>`;
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+</script>
+
+</body>
+</html>
