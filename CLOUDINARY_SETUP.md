@@ -81,3 +81,19 @@ sur GitHub Pages, Netlify, Vercel, etc.
 
 Cloudinary stocke les documents.
 Firebase Realtime Database stocke les dossiers.
+
+
+## 7. Erreur HTTP 401 lors de l'ouverture d'un PDF
+
+Si l'envoi fonctionne mais que le bouton **Voir** ouvre une page Cloudinary avec `HTTP ERROR 401`, vérifiez les réglages de sécurité Cloudinary. Sur les comptes Cloudinary Free, la livraison des PDF peut être bloquée par défaut pour des raisons de sécurité.
+
+Dans Cloudinary :
+
+1. Ouvrir **Settings → Security**.
+2. Rechercher **Allow delivery of PDF and ZIP files**.
+3. Activer cette option.
+4. Vérifier également que le preset `ADV-Klam` utilise un type de livraison public (**Upload**) et non `Private` ou `Authenticated`.
+
+Les PDF sont normalement stockés comme ressources `image` et leur `secure_url` peut ensuite être ouvert directement dans le navigateur.
+
+Référence : https://cloudinary.com/documentation/paged_and_layered_media
