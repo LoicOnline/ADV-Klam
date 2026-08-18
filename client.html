@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
 :root {
   --bg: #FAF8F4; --surface: #FFFFFF; --ink: #0D1B2A;
@@ -182,13 +181,13 @@ input[type="file"] { display: none; }
   </div>
 </div>
 
-<div class="footer">Vos documents sont chiffrés et accessibles uniquement par notre équipe</div>
+<div class="footer">Vos documents sont stockés sur une infrastructure sécurisée et accessibles via votre lien de dossier</div>
 
 <div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
 <script>
-let db, storage, dossierId, dossier;
+let db, dossierId, dossier;
 
 window.addEventListener('DOMContentLoaded', () => {
   dossierId = new URLSearchParams(location.search).get('id');
@@ -197,7 +196,6 @@ window.addEventListener('DOMContentLoaded', () => {
   try {
     if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
     db = firebase.database();
-    storage = firebase.storage();
     loadDossier();
   } catch (e) {
     console.error(e);
@@ -378,38 +376,62 @@ async function handleUpload(key, file) {
     showToast('Fichier trop volumineux (max 10 Mo)', true);
     return;
   }
+
   const okTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
   if (!okTypes.includes(file.type)) {
     showToast('Format non accepté (PDF, JPG, PNG uniquement)', true);
     return;
   }
 
+  if (!window.CLOUDINARY_CONFIG?.cloudName || window.CLOUDINARY_CONFIG.cloudName === 'VOTRE_CLOUD_NAME' ||
+      !window.CLOUDINARY_CONFIG?.uploadPreset || window.CLOUDINARY_CONFIG.uploadPreset === 'VOTRE_UNSIGNED_UPLOAD_PRESET') {
+    showToast('Cloudinary n’est pas encore configuré', true);
+    return;
+  }
+
   const card = document.getElementById('card_' + key);
   if (card) {
-    card.querySelector('.doc-meta').innerHTML = `<span class="uploading">Téléchargement en cours…</span>`;
+    card.querySelector('.doc-meta').innerHTML = `<span class="uploading">Téléchargement sécurisé en cours…</span>`;
     card.style.pointerEvents = 'none';
   }
 
   try {
-    const ext = file.name.split('.').pop();
-    const path = `documents/${dossierId}/${key}_${Date.now()}.${ext}`;
-    const ref = storage.ref(path);
+    const timestamp = Date.now();
+    const folder = `${window.CLOUDINARY_CONFIG.folder}/${dossierId}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', window.CLOUDINARY_CONFIG.uploadPreset);
+    formData.append('folder', folder);
+    formData.append('context', `dossier_id=${dossierId}|document_key=${key}`);
 
-    const prev = dossier.docs[key].path;
-    if (prev) { try { await storage.ref(prev).delete(); } catch(e) {} }
+    const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(window.CLOUDINARY_CONFIG.cloudName)}/auto/upload`;
+    const response = await fetch(endpoint, { method: 'POST', body: formData });
 
-    await ref.put(file);
-    const url = await ref.getDownloadURL();
+    const result = await response.json();
+    if (!response.ok || !result.secure_url) {
+      throw new Error(result.error?.message || 'Cloudinary a refusé le fichier');
+    }
 
+    // On conserve l'identifiant Cloudinary afin de pouvoir retrouver le fichier.
+    // La suppression automatique d'un asset Cloudinary nécessite une requête
+    // authentifiée côté serveur et ne doit jamais exposer l'API Secret au navigateur.
     await db.ref(`dossiers/${dossierId}/docs/${key}`).update({
-      status: 'received', path, url,
-      filename: file.name, uploadedAt: Date.now()
+      status: 'received',
+      publicId: result.public_id || null,
+      resourceType: result.resource_type || null,
+      url: result.url || null,
+      secureUrl: result.secure_url,
+      filename: file.name,
+      uploadedAt: timestamp,
+      cloudinaryVersion: result.version || null,
+      cloudinaryFormat: result.format || null,
+      cloudinaryBytes: result.bytes || file.size
     });
 
     showToast('Document envoyé avec succès');
   } catch (e) {
     console.error(e);
-    showToast('Erreur lors de l\'envoi, réessayez', true);
+    showToast('Erreur lors de l’envoi, réessayez', true);
     render();
   }
 }

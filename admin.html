@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
 :root {
   --bg: #FAF8F4; --surface: #FFFFFF; --ink: #0D1B2A;
@@ -353,7 +352,7 @@ html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', san
 
 <script src="config.js"></script>
 <script>
-let db, storage, dossiers = {}, selectedId = null, currentFilter = 'all';
+let db, dossiers = {}, selectedId = null, currentFilter = 'all';
 const PUBLIC_CLIENT_URL = window.location.href.replace(/admin\.html.*$/, 'client.html');
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -387,10 +386,9 @@ function initApp() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
     db = firebase.database();
-    storage = firebase.storage();
     listenDossiers();
   } catch (e) {
-    console.error('Firebase init failed:', e);
+    console.error('Initialisation Firebase failed:', e);
     showToast('Erreur Firebase : ' + e.message, true);
   }
 }
@@ -461,30 +459,38 @@ async function createDossier() {
 }
 
 async function deleteDossier(id) {
-  if (!confirm('Supprimer définitivement ce dossier et tous ses fichiers ?')) return;
-  const d = dossiers[id];
-  if (d.docs) {
-    for (const k of Object.keys(d.docs)) {
-      if (d.docs[k].path) {
-        try { await storage.ref(d.docs[k].path).delete(); } catch(e) {}
-      }
-    }
+  if (!confirm('Supprimer définitivement ce dossier ? Les fichiers Cloudinary déjà envoyés devront être supprimés depuis Cloudinary.')) return;
+
+  try {
+    await db.ref('dossiers/' + id).remove();
+    selectedId = null;
+    document.getElementById('mainPanel').innerHTML = `
+      <div class="empty-state"><h2>Dossier supprimé</h2><p>Sélectionnez un autre dossier</p></div>`;
+    showToast('Dossier supprimé');
+  } catch (e) {
+    console.error(e);
+    showToast('Erreur lors de la suppression : ' + e.message, true);
   }
-  await db.ref('dossiers/' + id).remove();
-  selectedId = null;
-  document.getElementById('mainPanel').innerHTML = `
-    <div class="empty-state"><h2>Dossier supprimé</h2><p>Sélectionnez un autre dossier</p></div>`;
-  showToast('Dossier supprimé');
 }
 
 async function removeDocFile(id, key) {
-  if (!confirm('Demander à nouveau ce document au client ?')) return;
-  const path = dossiers[id].docs[key].path;
-  if (path) { try { await storage.ref(path).delete(); } catch(e) {} }
-  await db.ref(`dossiers/${id}/docs/${key}`).update({
-    status: 'missing', path: null, url: null, filename: null, uploadedAt: null
-  });
-  showToast('Document supprimé, le client peut le redéposer');
+  if (!confirm('Demander à nouveau ce document au client ? Le fichier Cloudinary existant ne sera pas supprimé automatiquement.')) return;
+
+  try {
+    await db.ref(`dossiers/${id}/docs/${key}`).update({
+      status: 'missing',
+      publicId: null,
+      resourceType: null,
+      url: null,
+      secureUrl: null,
+      filename: null,
+      uploadedAt: null
+    });
+    showToast('Document supprimé, le client peut le redéposer');
+  } catch (e) {
+    console.error(e);
+    showToast('Erreur lors de la mise à jour : ' + e.message, true);
+  }
 }
 
 function setFilter(f) {
@@ -596,6 +602,7 @@ function renderDossier(id) {
 
     <div class="docs-section">
       <h3>Documents requis</h3>
+      <p style="font-size:12px;color:var(--ink-mute);margin:-8px 0 16px;">Les fichiers sont stockés sur Cloudinary. La base Firebase conserve uniquement les informations du dossier et les métadonnées.</p>
       ${Object.entries(docs).map(([k, doc]) => `
         <div class="doc-row ${doc.status}">
           <div class="doc-icon">${doc.icon || '📄'}</div>
@@ -606,8 +613,8 @@ function renderDossier(id) {
           </div>
           <div class="doc-status ${doc.status}">${doc.status === 'received' ? 'Reçu' : 'Manquant'}</div>
           <div style="display: flex; gap: 6px;">
-            ${doc.url ? `<a href="${doc.url}" target="_blank" class="doc-action">Voir</a>` : ''}
-            ${doc.url ? `<button class="doc-action danger" onclick="removeDocFile('${id}', '${k}')">Redemander</button>` : ''}
+            ${doc.secureUrl ? `<a href="${doc.secureUrl}" target="_blank" rel="noopener noreferrer" class="doc-action">Voir</a>` : ''}
+            ${doc.secureUrl ? `<button class="doc-action danger" onclick="removeDocFile('${id}', '${k}')">Redemander</button>` : ''}
           </div>
         </div>
       `).join('')}
